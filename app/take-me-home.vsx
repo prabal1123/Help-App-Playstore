@@ -1,0 +1,334 @@
+
+import {
+  View,
+  Text,
+  Pressable,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Linking,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { takeMeHomeStyles as styles } from "@/styles/takeMeHome";
+import * as Location from "expo-location";
+import { useEffect, useState, useRef } from "react";
+import { supabase } from "@/supabase/supabase";
+
+let MapView: any;
+let Marker: any;
+let Polyline: any;
+
+if (Platform.OS !== "web") {
+  const Maps = require("react-native-maps");
+  MapView = Maps.default;
+  Marker = Maps.Marker;
+  Polyline = Maps.Polyline;
+}
+
+export default function TakeMeHomeScreen() {
+  const router = useRouter();
+  const mapRef = useRef<any>(null);
+
+  const [currentLocation, setCurrentLocation] = useState<any>(null);
+  const [homeLocation, setHomeLocation] = useState<any>(null);
+  const [homeAddress, setHomeAddress] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [navigating, setNavigating] = useState(false);
+
+  /* ─────────────────────────────────────────────────────────────────────
+     LOAD DATA
+     
+     ✅ FIX 1 (Priority 1): Reads from help_app_home_locations — the
+        correct dedicated table — instead of the oldest record in
+        help_app_user_locations.
+
+     ✅ FIX 2 (Remount loop): Replaced hasLoaded.current ref with a
+        `cancelled` flag inside the effect. Previously the ref was
+        resetting to false on every remount, causing loadData to run
+        5 times. Now:
+        - The effect runs exactly once per mount
+        - If the component unmounts mid-fetch, `cancelled = true`
+          stops all pending setState calls (no memory leaks)
+        - The cleanup return () => { cancelled = true } handles
+          React Strict Mode double-invocation too
+  ───────────────────────────────────────────────────────────────────── */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        console.log("1️⃣ Starting loadData...");
+
+        // ── Location permission ────────────────────────────────────────
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        console.log("2️⃣ Location permission status:", status);
+        if (cancelled) return;
+
+        if (status !== "granted") {
+          Alert.alert(
+            "Permission Required",
+            "Location permission is needed to navigate home."
+          );
+          setLoading(false);
+          return;
+        }
+
+        // ── Current position ───────────────────────────────────────────
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        console.log("3️⃣ Got location:", location.coords);
+        if (cancelled) return;
+
+        const userCoords = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        };
+        setCurrentLocation(userCoords);
+
+        // ── Logged-in user ─────────────────────────────────────────────
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        console.log("4️⃣ Got user:", user?.id);
+        if (cancelled) return;
+
+        if (!user) {
+          Alert.alert("Not logged in", "Please log in to use this feature.");
+          setLoading(false);
+          return;
+        }
+
+        // ── Fetch home location ────────────────────────────────────────
+        // ✅ FIXED: was previously fetching oldest row from
+        //    help_app_user_locations. Now correctly reads from
+        //    help_app_home_locations which has unique(user_id) —
+        //    exactly one home per user, set by guardian or user.
+        const { data: homeData, error: homeError } = await supabase
+          .from("help_app_home_locations")
+          .select("lat, lng, address")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        console.log("5️⃣ Home data:", homeData, "Error:", homeError);
+        if (cancelled) return;
+
+        if (homeError) {
+          console.error("Home fetch error:", homeError.message);
+          Alert.alert("Error", "Could not fetch your home location.");
+          setLoading(false);
+          return;
+        }
+
+        if (!homeData) {
+          Alert.alert(
+            "No Home Set",
+            "Your guardian hasn't set a home location for you yet."
+          );
+          setLoading(false);
+          return;
+        }
+
+        const homeCoords = {
+          latitude: Number(homeData.lat),
+          longitude: Number(homeData.lng),
+        };
+
+        setHomeLocation(homeCoords);
+        if (homeData.address) setHomeAddress(homeData.address);
+        console.log("6️⃣ Home set:", homeCoords);
+
+        // ── Fit map to show both pins ──────────────────────────────────
+        setTimeout(() => {
+          if (cancelled) return;
+          mapRef.current?.fitToCoordinates([userCoords, homeCoords], {
+            edgePadding: { top: 100, right: 100, bottom: 100, left: 100 },
+            animated: true,
+          });
+        }, 700);
+
+      } catch (err) {
+        if (cancelled) return;
+        console.error("❌ Error in loadData:", err);
+        Alert.alert("Something went wrong", "Please try again.");
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          console.log("7️⃣ Loading set to false");
+        }
+      }
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+      console.log("🧹 TakeMeHomeScreen unmounted — load cancelled");
+    };
+  }, []); // ← runs exactly once per mount
+
+  /* ─────────────────────────────────────────────────────────────────────
+     START NAVIGATION
+  ───────────────────────────────────────────────────────────────────── */
+
+  const startNavigation = async () => {
+    if (!homeLocation) {
+      Alert.alert("Home location not found.");
+      return;
+    }
+
+    const { latitude, longitude } = homeLocation;
+    setNavigating(true);
+
+    try {
+      if (Platform.OS === "ios") {
+        const googleMapsUrl = `comgooglemaps://?daddr=${latitude},${longitude}&directionsmode=walking`;
+        const appleMapsUrl = `maps://?daddr=${latitude},${longitude}&dirflg=w`;
+        const googleSupported = await Linking.canOpenURL(googleMapsUrl);
+        await Linking.openURL(googleSupported ? googleMapsUrl : appleMapsUrl);
+      } else {
+        const googleMapsUrl = `google.navigation:q=${latitude},${longitude}&mode=w`;
+        const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=walking`;
+        const googleSupported = await Linking.canOpenURL(googleMapsUrl);
+        await Linking.openURL(googleSupported ? googleMapsUrl : fallbackUrl);
+      }
+    } catch (err) {
+      console.error("Navigation error:", err);
+      Alert.alert("Could not open maps app.");
+    } finally {
+      setNavigating(false);
+    }
+  };
+
+  /* ─────────────────────────────────────────────────────────────────────
+     ALERT GUARDIAN
+     TODO Priority 3: insert into help_app_panic_events + help_app_alerts
+  ───────────────────────────────────────────────────────────────────── */
+
+  const alertGuardian = async () => {
+    Alert.alert("🚨 Guardian Alert Sent");
+  };
+
+  /* ─────────────────────────────────────────────────────────────────────
+     RENDER
+  ───────────────────────────────────────────────────────────────────── */
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ActivityIndicator size="large" />
+      </SafeAreaView>
+    );
+  }
+
+  if (!homeLocation) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text style={{ textAlign: "center", marginTop: 80, color: "#666" }}>
+          No home location found.{"\n"}Ask your guardian to set one.
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* HEADER */}
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()}>
+          <Text style={styles.back}>←</Text>
+        </Pressable>
+        <Text style={styles.title}>Take Me Home</Text>
+        <Pressable>
+          <Text style={styles.voice}>🔊</Text>
+        </Pressable>
+      </View>
+
+      {Platform.OS !== "web" && (
+        <>
+          {/* MAP */}
+          <View style={styles.map}>
+            <MapView
+              ref={mapRef}
+              style={{ flex: 1 }}
+              showsUserLocation
+              followsUserLocation
+              region={{
+                latitude: currentLocation?.latitude ?? 28.6139,
+                longitude: currentLocation?.longitude ?? 77.209,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+            >
+              {/* Home pin — from help_app_home_locations */}
+              {homeLocation?.latitude != null &&
+                homeLocation?.longitude != null && (
+                  <Marker
+                    coordinate={{
+                      latitude: Number(homeLocation.latitude),
+                      longitude: Number(homeLocation.longitude),
+                    }}
+                    title="Home"
+                    description={homeAddress ?? undefined}
+                    pinColor="green"
+                  />
+                )}
+
+              {/* Current location pin */}
+              {currentLocation?.latitude != null &&
+                currentLocation?.longitude != null && (
+                  <Marker
+                    coordinate={{
+                      latitude: Number(currentLocation.latitude),
+                      longitude: Number(currentLocation.longitude),
+                    }}
+                    title="You are here"
+                  />
+                )}
+
+              {/* Straight-line route */}
+              {currentLocation && homeLocation && (
+                <Polyline
+                  coordinates={[currentLocation, homeLocation]}
+                  strokeWidth={4}
+                  strokeColor="#2E8B57"
+                />
+              )}
+            </MapView>
+          </View>
+
+          {/* STATUS CARD */}
+          <View style={styles.card}>
+            <Text style={styles.direction}>Heading to Saved Location</Text>
+            <Text style={styles.sub}>
+              {homeAddress ? homeAddress : "Navigation Active"}
+            </Text>
+          </View>
+
+          {/* START NAVIGATION */}
+          <Pressable
+            style={[styles.navBtn, navigating && styles.navBtnDisabled]}
+            onPress={startNavigation}
+            disabled={navigating}
+          >
+            {navigating ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Text style={styles.navBtnText}>🧭 Start Navigation</Text>
+                <Text style={styles.navBtnSub}>Opens in Google Maps</Text>
+              </>
+            )}
+          </Pressable>
+
+          {/* ALERT GUARDIAN */}
+          <Pressable style={styles.alertBtn} onPress={alertGuardian}>
+            <Text style={styles.alertText}>🚨 Alert Guardian</Text>
+          </Pressable>
+        </>
+      )}
+    </SafeAreaView>
+  );
+}
