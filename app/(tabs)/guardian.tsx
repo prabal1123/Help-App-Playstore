@@ -802,14 +802,16 @@
 // }
 
 
-import {
-  View,
-  Text,
-  SafeAreaView,
-  Pressable,
-  Platform,
-  Alert,
-} from "react-native";
+// import {
+//   View,
+//   Text,
+//   SafeAreaView,
+//   Pressable,
+//   Platform,
+//   Alert,
+// } from "react-native";
+import { View, Text, Pressable, Platform, Alert } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context"
 import { guardianStyles as styles } from "@/styles/guardian";
 import { useState, useEffect } from "react";
 import { supabase } from "@/supabase/supabase";

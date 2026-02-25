@@ -9,9 +9,9 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.okayprabal.helpapp"
     },
-    
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -20,15 +20,15 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.okayprabal.helpapp",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE"
+      ]
     },
-    // "web": {
-    //   "output": "static",
-    //   "favicon": "./assets/images/favicon.png"
-    // }
-    // "web": {
-    //   "bundler": "metro"
-    // },
     "plugins": [
       "expo-router",
       [
@@ -43,12 +43,26 @@
           }
         }
       ],
+        [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Help App to access your location even when the app is closed for emergency tracking.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
       "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
-    
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e087604e-7e57-4863-9ea5-870bd012c17d"
+      }
+    },
+    "owner": "okayprabal"
   }
 }
