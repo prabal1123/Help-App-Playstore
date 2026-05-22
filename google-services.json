@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "454277770589",
+    "project_id": "yugamai-helpapp",
+    "storage_bucket": "yugamai-helpapp.firebasestorage.app",
+    "firebase_url": "https://yugamai-helpapp-default-rtdb.firebaseio.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:454277770589:android:ab5966d64a749e47e94cb4",
+        "android_client_info": {
+          "package_name": "com.yugamai.helpapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbaZnhIVfwTUpoqrIU9MbI6gS7AXJpgrk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
