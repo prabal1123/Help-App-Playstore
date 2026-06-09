@@ -554,7 +554,12 @@ export default function HomeScreen() {
         return;
       }
 
-      const buttons: AlertButton[] = [];
+      const buttons: AlertButton[] = [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ];
 
       users.forEach((u) => {
         buttons.push({
@@ -563,12 +568,8 @@ export default function HomeScreen() {
         });
       });
 
-      buttons.push({
-        text: "Cancel",
-        style: "cancel",
-      });
-
       Alert.alert("📞 Call User", "Choose user to call", buttons);
+      
     } catch (error) {
       console.error("Call user error:", error);
       Alert.alert("Error", "Could not fetch user phone");

@@ -498,7 +498,8 @@ export default function LiveLocation() {
               longitude: Number(lng),
             };
             setLocation(coords);
-            setLastUpdated(new Date(data.recorded_at).toLocaleTimeString());
+            // setLastUpdated(new Date(data.recorded_at).toLocaleTimeString());
+            setLastUpdated(new Date(data.recorded_at).toLocaleString());
             mapRef.current?.animateToRegion(
               { ...coords, latitudeDelta: 0.01, longitudeDelta: 0.01 },
               800

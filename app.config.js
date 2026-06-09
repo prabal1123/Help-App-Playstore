@@ -2,7 +2,7 @@ export default ({ config }) => ({
   ...config,
   name: "help-app",
   slug: "help-app",
-  version: "1.0.0",
+  version: "1.0.1",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: "helpapp",
@@ -27,6 +27,7 @@ export default ({ config }) => ({
     },
   },
   android: {
+      versionCode: 2,
     googleServicesFile: "./google-services.json", 
     adaptiveIcon: {
       backgroundColor: "#E6F4FE",
