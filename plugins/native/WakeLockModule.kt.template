@@ -1,0 +1,49 @@
+package com.yugamai.helpapp.wakelock
+
+import android.content.Context
+import android.os.PowerManager
+import com.facebook.react.bridge.Promise
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReactContextBaseJavaModule
+import com.facebook.react.bridge.ReactMethod
+
+class WakeLockModule(reactContext: ReactApplicationContext) :
+    ReactContextBaseJavaModule(reactContext) {
+
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    override fun getName() = "WakeLockModule"
+
+    @ReactMethod
+    fun acquire(promise: Promise) {
+        try {
+            synchronized(this) {
+                if (wakeLock == null) {
+                    val pm = reactApplicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager
+                    wakeLock = pm.newWakeLock(
+                        PowerManager.PARTIAL_WAKE_LOCK,
+                        "HelpApp::LocationSendWakeLock"
+                    ).apply { setReferenceCounted(false) }
+                }
+                // Hard ceiling — even if release() is never called due to a bug,
+                // this can't pin the CPU awake forever.
+                wakeLock?.acquire(15_000L)
+            }
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("WAKE_LOCK_ACQUIRE_FAILED", e)
+        }
+    }
+
+    @ReactMethod
+    fun release(promise: Promise) {
+        try {
+            synchronized(this) {
+                wakeLock?.let { if (it.isHeld) it.release() }
+            }
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("WAKE_LOCK_RELEASE_FAILED", e)
+        }
+    }
+}

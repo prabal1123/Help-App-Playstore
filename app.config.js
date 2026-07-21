@@ -58,6 +58,8 @@ export default ({ config }) => ({
       "android.permission.READ_MEDIA_VIDEO",
       "android.permission.READ_MEDIA_AUDIO",
       "android.permission.RECORD_AUDIO",
+      "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+      
     ],
     intentFilters: [
       {
@@ -70,6 +72,7 @@ export default ({ config }) => ({
   plugins: [
     "@react-native-firebase/app", 
     "expo-router",
+    "./plugins/withWakeLock",
     [
       "expo-splash-screen",
       {
